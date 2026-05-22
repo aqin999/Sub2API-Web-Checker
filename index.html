@@ -1,0 +1,299 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sub2API 账号巡检</title>
+  <link rel="stylesheet" href="./styles.css?v=20260515-4" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-icon">账</div><div><strong>账号巡检</strong><span>Account Tool</span></div></div>
+    <nav id="sideNav">
+      <a class="nav-link active" data-view="dashboard">仪表盘</a>
+      <a class="nav-link" data-view="accounts">账号管理</a>
+      <a class="nav-link" data-view="settings">系统设置</a>
+    </nav>
+    <div class="sidebar-foot"><span class="online-dot"></span> 在线</div>
+  </aside>
+  <main class="app-shell">
+    <section class="page-header">
+      <div>
+        <h1>账号管理</h1>
+        <p class="subtle">读取 Sub2API 面板账号信息，展示账号状态并进行模型连通性测试</p>
+      </div>
+      <div class="hero-actions">
+        <button id="loadAccountsBtn" type="button" class="btn ghost">↻ 刷新</button>
+        <button id="startBtn" class="btn primary">⚡ 开始巡检</button>
+        <button id="stopBtn" class="btn danger ghost">停止</button>
+      </div>
+    </section>
+
+    <section id="dashboardView" class="view-panel top-grid">
+
+
+      <aside class="card stats-card dashboard-card">
+        <div class="dashboard-hero">
+          <div class="dashboard-title-block">
+            <span class="dashboard-kicker">Overview</span>
+            <h2>运行状态</h2>
+            <p class="subtle small-subtitle">账号巡检、调度状态和异常结果实时汇总</p>
+          </div>
+          <div class="dashboard-state-box">
+            <span class="state-dot"></span>
+            <span id="runState" class="pill">空闲</span>
+          </div>
+        </div>
+        <div class="metrics dashboard-metrics">
+          <div class="metric-card metric-total"><i>Σ</i><strong id="statTotal">0</strong><span>账号总数</span></div>
+          <div class="metric-card metric-checked"><i>✓</i><strong id="statChecked">0</strong><span>已处理</span></div>
+          <div class="metric-card metric-ok"><i>●</i><strong id="statOk">0</strong><span>正常</span></div>
+          <div class="metric-card metric-limited"><i>⏱</i><strong id="statLimited">0</strong><span>限流</span></div>
+          <div class="metric-card metric-failed"><i>!</i><strong id="statFailed">0</strong><span>异常</span></div>
+          <div class="metric-card metric-enabled"><i>▶</i><strong id="statEnabled">0</strong><span>已启用</span></div>
+          <div class="metric-card metric-disabled"><i>Ⅱ</i><strong id="statDisabled">0</strong><span>已关闭</span></div>
+          <div class="metric-card metric-skipped"><i>↷</i><strong id="statSkipped">0</strong><span>跳过</span></div>
+        </div>
+        <div class="dashboard-progress-wrap">
+          <div class="progress-label"><span>巡检进度</span><b id="progressText">0%</b></div>
+          <div class="progress"><div id="progressBar"></div></div>
+        </div>
+        <div class="dashboard-message-row">
+          <p id="lastMessage" class="subtle">等待开始。</p>
+          <button id="exportBtn" class="btn ghost" type="button">⬇ 导出结果 JSON</button>
+        </div>
+      </aside>
+      <section class="card log-card dashboard-log">
+        <div class="section-title log-title">
+          <div><h2>运行日志</h2><p class="subtle small-subtitle">巡检过程、异常原因和自动操作记录</p></div>
+          <span class="log-live"><i></i> Live</span>
+        </div>
+        <pre id="logBox"></pre>
+      </section>
+    </section>
+
+    <form id="configForm" class="view-panel card config-card compact-config" hidden>
+        <div class="section-title">
+          <h2>连接与策略</h2>
+          <span id="authState" class="pill muted">未验证</span>
+        </div>
+
+        <label class="field">
+          <span>API Base</span>
+          <input id="apiBase" type="url" placeholder="https://your-sub2api.example" autocomplete="url" />
+          <small>如果本页面部署在 Sub2API 同源下，可填写当前 origin；跨域部署时需后端允许 CORS。</small>
+        </label>
+
+        <label class="field">
+          <span>Authorization</span>
+          <input id="authToken" type="password" placeholder="admin-xxxx 或 Bearer JWT" autocomplete="off" />
+          <small>可填写系统设置里的管理员 API Key（admin- 开头），也可填写后台登录 JWT；会保存在当前浏览器 localStorage。</small>
+        </label>
+
+        <div class="two-col">
+          <label class="field">
+            <span>测试模型</span>
+            <input id="testModel" type="text" placeholder="gpt-5.4" />
+            <small>为空时按账号 model_mapping 中的模型巡检。</small>
+          </label>
+          <label class="field">
+            <span>单模型超时（秒）</span>
+            <input id="timeoutSec" type="number" min="1" step="1" />
+          </label>
+        </div>
+
+        <div class="two-col">
+          <label class="field">
+            <span>分页大小</span>
+            <input id="pageSize" type="number" min="1" max="500" step="1" />
+          </label>
+          <label class="field">
+            <span>测试 Prompt</span>
+            <input id="prompt" type="text" placeholder="hi" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>优先模型列表</span>
+          <textarea id="preferredModels" rows="3" placeholder="gpt-5.4, gpt-4o-mini, gpt-4o"></textarea>
+          <small>为空时按账号 model_mapping 中的模型巡检；可用逗号、空格或换行分隔。</small>
+        </label>
+
+        <div class="checks">
+          <label><input id="onlySchedulable" type="checkbox" /> 仅检查已启用 schedulable 的账号</label>
+          <label><input id="stopOnFirstFailure" type="checkbox" /> 单账号任一模型失败即停止该账号后续模型</label>
+          <label><input id="autoDisable" type="checkbox" /> 失败时自动关闭 schedulable</label>
+          <label><input id="autoEnable" type="checkbox" /> 正常且当前关闭时自动重新启用 schedulable</label>
+        </div>
+
+
+        <section class="settings-block schedule-settings">
+          <div class="section-title inner-title">
+            <div>
+              <h2>定时巡检</h2>
+              <p class="subtle small-subtitle">开启后会在浏览器页面保持打开时按间隔自动执行“开始巡检”。</p>
+            </div>
+            <span id="scheduleState" class="pill muted">未开启</span>
+          </div>
+          <div class="two-col">
+            <label class="field inline-check">
+              <span>启用定时巡检</span>
+              <label class="switch-line"><input id="scheduledCheckEnabled" type="checkbox" /> 自动按间隔巡检</label>
+            </label>
+            <label class="field">
+              <span>巡检间隔（分钟）</span>
+              <input id="scheduledIntervalMin" type="number" min="1" max="1440" step="1" />
+              <small>建议 10 分钟以上；页面关闭或电脑休眠时不会执行。</small>
+            </label>
+          </div>
+          <div class="two-col">
+            <label class="field">
+              <span>下次执行</span>
+              <input id="nextRunAt" type="text" readonly placeholder="未计划" />
+            </label>
+            <div class="field schedule-actions">
+              <span>操作</span>
+              <div class="button-row">
+                <button id="runScheduledNowBtn" type="button" class="btn ghost">立即巡检一次</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-block auto-refresh-settings">
+          <div class="section-title inner-title">
+            <div>
+              <h2>自动刷新</h2>
+              <p class="subtle small-subtitle">开启后会在浏览器页面保持打开时按间隔自动执行右上角“刷新”，重新读取账号列表和用量统计。</p>
+            </div>
+            <span id="autoRefreshState" class="pill muted">未开启</span>
+          </div>
+          <div class="two-col">
+            <label class="field inline-check">
+              <span>启用自动刷新</span>
+              <label class="switch-line"><input id="autoRefreshEnabled" type="checkbox" /> 自动按间隔刷新</label>
+            </label>
+            <label class="field">
+              <span>刷新间隔（分钟）</span>
+              <input id="autoRefreshIntervalMin" type="number" min="1" max="1440" step="1" />
+              <small>到达时间后自动拉取账号列表和用量；已有巡检/刷新任务运行时会跳过本次。</small>
+            </label>
+          </div>
+          <div class="two-col">
+            <label class="field">
+              <span>下次刷新</span>
+              <input id="nextAutoRefreshAt" type="text" readonly placeholder="未计划" />
+            </label>
+            <div class="field schedule-actions">
+              <span>操作</span>
+              <div class="button-row">
+                <button id="runAutoRefreshNowBtn" type="button" class="btn ghost">立即刷新一次</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <div class="button-row">
+          <button id="saveBtn" type="submit" class="btn">保存配置</button>
+        </div>
+    </form>
+
+    <section id="accountsView" class="view-panel card table-card" hidden>
+      <div class="section-title table-title-row">
+        <div>
+          <h2>账号列表</h2>
+          <p class="subtle small-subtitle">筛选、查看配额/并发，并对单个账号发起测试</p>
+        </div>
+        <div class="table-tools search-plan-row">
+          <input id="searchInput" type="search" placeholder="搜索邮箱或名称..." />
+          <div class="plan-tabs" id="planTabs" aria-label="计划过滤">
+            <button type="button" class="active" data-plan-filter="all">全部</button>
+            <button type="button" data-plan-filter="pro">Pro</button>
+            <button type="button" data-plan-filter="prolite">ProLite</button>
+            <button type="button" data-plan-filter="plus">Plus</button>
+            <button type="button" data-plan-filter="team">Team</button>
+            <button type="button" data-plan-filter="free">Free</button>
+          </div>
+        </div>
+      </div>
+      <div class="account-toolbar">
+        <div class="segmented" id="statusFilters">
+          <button type="button" class="active" data-filter-status="all">全部 <b id="filterAllCount">0</b></button>
+          <button type="button" data-filter-status="normal">正常 <b id="filterNormalCount">0</b></button>
+          <button type="button" data-filter-status="limited">限流 <b id="filterLimitedCount">0</b></button>
+          <button type="button" data-filter-status="banned">封禁 <b id="filterBannedCount">0</b></button>
+          <button type="button" data-filter-status="failed">错误 <b id="filterFailedCount">0</b></button>
+          <button type="button" data-filter-status="disabled">已禁用 <b id="filterDisabledCount">0</b></button>
+          <button type="button" data-filter-status="locked">已锁定 <b id="filterLockedCount">0</b></button>
+        </div>
+        <div class="select-row">
+          <div class="view-toggle" id="accountViewToggle" aria-label="账号显示方式">
+            <button type="button" class="active" data-account-view="table" title="行显示">☰</button>
+            <button type="button" data-account-view="cards" title="列显示">▦</button>
+          </div>
+          <select id="platformFilter" aria-label="分组过滤"><option value="all">全部分组</option></select>
+        </div>
+      </div>
+      <div class="table-wrap" id="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>账号</th>
+              <th>计划</th>
+              <th>状态</th>
+              <th>用量</th>
+              <th>统计</th>
+              <th><button class="th-sort" type="button" data-sort-field="importTime">导入时间 <span id="importTimeSortIcon">↕</span></button></th>
+              <th>更新时间</th>
+              <th>过期时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody">
+            <tr class="empty"><td colspan="9">暂无数据。点击“仅拉取账号”或“开始巡检”。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="cardGrid" class="account-card-grid" hidden></div>
+      <div class="table-footer">
+        <span id="pageSummary">显示 0-0 / 共 0 条</span>
+        <div class="pager-controls">
+          <label>每页条数
+            <select id="accountPageSize">
+              <option value="10">10 条/页</option>
+              <option value="20" selected>20 条/页</option>
+              <option value="50">50 条/页</option>
+              <option value="100">100 条/页</option>
+            </select>
+          </label>
+          <button id="prevPageBtn" class="btn mini ghost" type="button">上一页</button>
+          <strong id="pageIndicator">第 1 / 1 页</strong>
+          <button id="nextPageBtn" class="btn mini ghost" type="button">下一页</button>
+        </div>
+      </div>
+    </section>
+
+
+  </main>
+
+
+  <div id="detailModal" class="modal-backdrop" hidden>
+    <section class="modal-card account-detail-modal" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="detailModalTitle">账号详情</h2>
+          <p id="detailModalSub" class="subtle small-subtitle">读取 Sub2API 账号详情</p>
+        </div>
+        <button id="detailModalClose" type="button" class="icon-btn modal-close" aria-label="关闭">×</button>
+      </div>
+      <div id="detailModalBody" class="detail-body"></div>
+    </section>
+  </div>
+
+  <script src="./config.js?v=20260515-4"></script>
+  <script src="./app.js?v=20260515-4"></script>
+</body>
+</html>
+
+

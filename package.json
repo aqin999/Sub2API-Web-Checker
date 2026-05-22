@@ -1,0 +1,14 @@
+{
+  "name": "sub2api-checker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sub2API account checker static server and API proxy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "serve": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
