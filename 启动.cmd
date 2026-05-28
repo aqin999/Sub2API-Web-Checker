@@ -13,7 +13,7 @@ if errorlevel 1 (
 )
 
 set "PORT=8787"
-set "SUB2API_TARGET=http://156.226.173.152:8080"
+set "SUB2API_TARGET=http://127.0.0.1:8080"
 
 echo Starting Sub2API Checker...
 echo Local URL: http://127.0.0.1:%PORT%
