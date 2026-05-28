@@ -1,4 +1,4 @@
-﻿(() => {
+(() => {
   'use strict';
 
   const STORAGE_KEY = '__sub2api_web_checker_config__';
@@ -420,7 +420,7 @@
     saveResults();
     renderStats();
     renderTable();
-    await refreshAllUsageSummaries({ concurrency: 3 });
+    await refreshAllUsageSummaries({ concurrency: 3, source: 'active' });
     log(`共获取 ${items.length} 个账号`, 'ok');
     return items;
   }
@@ -831,6 +831,7 @@
     const rows = state.results || [];
     if (!rows.length) return;
     const concurrency = Math.max(1, Math.min(4, options.concurrency || 3));
+    const source = options.source || 'passive';
     let index = 0;
     let done = 0;
     log(`开始批量读取 ${rows.length} 个账号用量统计`);
@@ -839,7 +840,7 @@
         const row = rows[index++];
         try {
           const [usageResult, statsResult] = await Promise.allSettled([
-            apiFetch(`/api/v1/admin/accounts/${row.id}/usage?source=passive`, { headers: { Accept: 'application/json, text/plain, */*' } }),
+            apiFetch(`/api/v1/admin/accounts/${row.id}/usage?source=${encodeURIComponent(source)}`, { headers: { Accept: 'application/json, text/plain, */*' } }),
             apiFetch(`/api/v1/admin/accounts/${row.id}/stats?days=30`, { headers: { Accept: 'application/json, text/plain, */*' } }),
           ]);
           let usage = null;
@@ -1593,6 +1594,8 @@
   updateAutoRefreshTimer();
   log('工具已就绪。请确认 API Base 和 Authorization 后开始。');
 })();
+
+
 
 
 
